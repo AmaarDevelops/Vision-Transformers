@@ -34,13 +34,19 @@ class Compose(object):
 
 def show_images(images,num_samples=20,cols=4):
     plt.figure(figsize=(15,15))
-    idx = int(len(full_dataset) / num_samples)
+    idx = int(len(images) / num_samples)
     print(images)
 
-    for i,img in enumerate(images):
+    for i,img_data in enumerate(images):
         if i % idx == 0:
+            img = img_data[0]
+            img = img.permute(1,2,0)
+
             plt.subplot(int(num_samples/cols) + 1,cols,int(i/idx) + 1)
-            plt.imshow(img[0])
+            plt.imshow(img)
+            plt.axis('off')
+            plt.show()
+
 
 
 full_dataset = OxfordIIITPet(root=".",split='trainval',download=True,transforms=Compose(to_tensor))
