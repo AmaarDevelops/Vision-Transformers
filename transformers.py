@@ -3,14 +3,24 @@ import torch
 from torchvision.datasets import OxfordIIITPet
 from torchvision.transforms import Resize,ToTensor
 import matplotlib.pyplot as plt
+import torchvision
 import torch.nn as nn
 from torch.nn import MultiheadAttention
 from einops.layers.torch import Rearrange
 from einops import repeat
+from torch.utils.data import random_split,DataLoader
+from sklearn.metrics import accuracy_score
 
 
 
-to_tensor = [Resize((144,144)),ToTensor()]
+
+
+to_tensor = [Resize((144,144)),torchvision.transforms.RandomHorizontalFlip(),
+             torchvision.transforms.RandomRotation(10),
+             ToTensor()]
+
+
+
 
 class Compose(object):
     def __init__(self,transforms):
@@ -24,7 +34,7 @@ class Compose(object):
 
 def show_images(images,num_samples=20,cols=4):
     plt.figure(figsize=(15,15))
-    idx = int(len(dataset) / num_samples)
+    idx = int(len(full_dataset) / num_samples)
     print(images)
 
     for i,img in enumerate(images):
@@ -33,8 +43,31 @@ def show_images(images,num_samples=20,cols=4):
             plt.imshow(img[0])
 
 
-dataset = OxfordIIITPet(root=".",download=True,transforms=Compose(to_tensor))
-show_images(dataset)
+full_dataset = OxfordIIITPet(root=".",split='trainval',download=True,transforms=Compose(to_tensor))
+show_images(full_dataset)
+
+
+# Transforms
+
+
+# ----------------------- Data Splitting ---------------------------
+
+
+
+# Calculating lengths
+train_size = int(len(full_dataset) * 0.8)
+val_size = len(full_dataset) - train_size
+
+# Perform the actual split
+train_dataset,val_dataset = random_split(full_dataset,[train_size,val_size])
+
+
+# -------------------- Data Loader -------------------------
+
+train_loader = DataLoader(train_dataset,batch_size=64,shuffle=True)
+val_loader = DataLoader(val_dataset,batch_size=64,shuffle=False)
+
+
 
 
 # Patching
@@ -55,7 +88,7 @@ class PatchEmbeddings(nn.Module):
 
 # -- quick test --
 
-sample_datapoints = torch.unsqueeze(dataset[0][0],0)
+sample_datapoints = torch.unsqueeze(full_dataset[0][0],0)
 print('Initial Shape :' , sample_datapoints.shape)
 
 embedding = PatchEmbeddings()(sample_datapoints)
@@ -67,7 +100,7 @@ print('Patches shape :-' , embedding.shape)
 
 class Attention(nn.Module):
     def __init__(self,dim,n_heads,dropout):
-        super().__init()
+        super().__init__()
         self.n_heads = n_heads
         self.att = MultiheadAttention(dim,n_heads,dropout)
 
@@ -167,7 +200,7 @@ class ViT(nn.Module):
                 Residual(PreNorm(emb_dim,FeedForward(emb_dim,emb_dim,dropout=dropout)))
             )
             self.layers.append(transformer_block)
-            
+
 
         # Classification Head
         self.head = nn.Sequential(nn.LayerNorm(emb_dim),nn.Linear(emb_dim,out_dim))
@@ -198,4 +231,81 @@ model(torch.ones((1,3,144,144)))
 
 
 
+# ------------------------- Training -----------------------------
+num_epochs = 5
 
+learning_rate = 3e-4 # Karpathy constant
+
+# Optimizer for transformers
+optimizer = torch.optim.AdamW(model.parameters(),lr=learning_rate,weight_decay=1e-2)
+
+criterion = nn.CrossEntropyLoss()
+
+n_total_steps = len(train_loader)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model.to(device)
+
+
+
+for epoch in range(num_epochs):
+    model.train()
+    epoch_train_loss_sum = 0.0
+    epoch_train_n_correct = 0
+
+    for i, (image,label) in enumerate(train_loader):
+        image,label = image.to(device),label.to(device)
+
+        output = model(image)
+
+        loss = criterion(output,label)
+
+        # Back propagation and optimization
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Tracking the loss
+        epoch_train_loss_sum += loss.item()
+
+        # Training accuracy
+        _,predicted = torch.max(output,1)
+        epoch_train_n_correct += (predicted == label).sum().item()
+
+        if (i + 1) % 100 == 0:
+            print(f'Batch : {i + 1} /  {n_total_steps}, Loss : {loss.item():.4f}')
+
+
+    avg_train_loss = epoch_train_loss_sum / n_total_steps
+
+    # ------------- Evaluation -------
+    model.eval()
+    val_loss = 0.0
+    val_n_correct = 0
+
+    with torch.no_grad():
+        for images,labels in val_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            output = model(images)
+
+            loss = criterion(output,labels)
+
+            val_loss += loss.item()
+
+            _,predicted = torch.max(output,1)
+            val_n_correct += (predicted == labels).sum().item()
+
+        avg_val_loss = val_loss / len(val_loader)
+        val_accuracy = val_n_correct * 100 / len(val_loader)
+
+        print(f'Epoch :- {epoch + 1}, Train average loss :- {avg_train_loss:.4f} , Val average loss :- {avg_val_loss:.4f}')
+
+        print(f'Val accuracy :- {val_accuracy}')
+
+
+
+
+# Saving
+torch.save(model.state_dict(),"Transformer Oxford.pt")
