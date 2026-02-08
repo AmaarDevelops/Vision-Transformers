@@ -1,8 +1,8 @@
-Vision Transformer (ViT) from Scratch: Oxford-IIIT Pet Classification
+## Vision Transformer (ViT) from Scratch: Oxford-IIIT Pet Classification
 
 This project implements the Vision Transformer (ViT) architecture from the ground up using PyTorch and einops, specifically designed for fine-grained image classification on the Oxford-IIIT Pet Dataset.
 
-🚀 Overview
+## 🚀 Overview
 
 The goal of this project was to move away from traditional Convolutional Neural Networks (CNNs) and implement the "An Image is Worth 16x16 Words" methodology. By treating image patches as tokens in a sequence, we leverage the Self-Attention Mechanism to capture global spatial relationships.
 
@@ -16,7 +16,7 @@ Residual Connections & Pre-Norm: Utilized modern Transformer stabilization techn
 
 CLS Token & Positional Encoding: Included a learnable classification token and positional embeddings to maintain spatial context.
 
-🏗️ Architecture Detail
+## 🏗️ Architecture Detail
 
 Input Size: 144x144 pixels (RGB)
 
@@ -30,7 +30,7 @@ Attention Heads: 8
 
 Dropout: 0.1 (Regularization)
 
-📊 Dataset
+## 📊 Dataset
 
 The Oxford-IIIT Pet Dataset consists of ~3,700 images of 37 different breeds of cats and dogs.
 
@@ -39,7 +39,7 @@ Training/Validation Split: 80% / 20%
 Augmentations: Random Horizontal Flips and Random Rotations (10°) to prevent overfitting.
 
 
-🛠️ Installation & Usage
+## 🛠️ Installation & Usage
 
 Clone the repository
 
@@ -55,7 +55,7 @@ Run Training:
 python transformers.py
 
 
-🧠 Lessons Learned
+## 🧠 Lessons Learned
 
 Transformer Sensitivity: Unlike CNNs, Transformers are highly sensitive to hyperparameters such as the learning rate (3e-4 "Karpathy Constant") and initialization.
 
